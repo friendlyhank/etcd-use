@@ -3,7 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
-	"go.etcd.io/etcd/clientv3"
+	"hank.com/etcd-3.3.12-annotated/clientv3"
 	"time"
 )
 
@@ -21,6 +21,8 @@ func main(){
 	defer cli.Close()
 
 	cli.Put(context.Background(), "/logagent/conf/", "8888888")
+
+	//用for循环去监视watch
 	for {
 		rch := cli.Watch(context.Background(), "/logagent/conf/")
 		for wresp := range rch {
