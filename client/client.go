@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"time"
-
+	//可以自行换为官方etcd
 	"hank.com/etcd-3.3.12-annotated/clientv3"
 )
 
