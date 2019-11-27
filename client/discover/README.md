@@ -1,0 +1,4 @@
+register
+
+为什么要设置租约
+server可能异常退出，需要维护一个TTL,类似于心跳,master可以监听到

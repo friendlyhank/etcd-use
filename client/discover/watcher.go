@@ -20,7 +20,13 @@ type Master struct {
 //Node- 监听节点信息
 type Node struct{
 	nodeName string
-	endpoint string
+	serviceMeta ServiceMeta
+}
+
+type ServiceMeta struct {
+	IP  string
+	Endpoint string
+	Weight int32
 }
 
 //NewClientDis-
@@ -75,7 +81,6 @@ func (m *Master) GetServiceList() ([]string, error) {
 func (m *Master) SetServiceList(key, val string) {
 	node := &Node{
 		nodeName:key,
-		endpoint:val,
 	}
 	m.Nodes.Store(node.nodeName,node)
 	fmt.Println("set data key :", key, "val:", val)

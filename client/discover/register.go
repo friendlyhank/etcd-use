@@ -93,6 +93,12 @@ func (ser *Service) Register(nodeName, endpoint string) error {
 	return err
 }
 
+func (ser *Service)UnRegister(nodeName string)error{
+	kv := clientv3.NewKV(ser.client)
+	_,err := kv.Delete(context.TODO(),nodeName)
+	return err
+}
+
 //撤销租约
 func (ser *Service) RevokeLease() error {
 	time.Sleep(2 * time.Second)
@@ -112,6 +118,11 @@ func main() {
 		os.Exit(2)
 	}
 
+	ser.Register("hank1","localhost:2379")
+	ser.Register("hank2","localhost:2381")
+	ser.Register("hank3","localhost:2383")
+
 	//启动服务
 	ser.Start()
+	select {}
 }
