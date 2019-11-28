@@ -1,8 +1,8 @@
-package main
+package discover
 
 import (
 	"context"
-	"fmt"
+	"encoding/json"
 	"log"
 	"sync"
 	"time"
@@ -19,10 +19,11 @@ type Master struct {
 
 //Node- 监听节点信息
 type Node struct{
-	nodeName string
-	serviceMeta ServiceMeta
+	key string
+	serviceMeta *ServiceMeta
 }
 
+//ServiceMeta-
 type ServiceMeta struct {
 	IP  string
 	Endpoint string
@@ -30,7 +31,7 @@ type ServiceMeta struct {
 }
 
 //NewClientDis-
-func NewClientDis(addr []string,groupName string) (*Master, error) {
+func NewClientDis(groupName string,addr []string,) (*Master, error) {
 	cli, err := clientv3.New(clientv3.Config{
 		Endpoints:   addr,
 		DialTimeout: 5 * time.Second,
@@ -44,6 +45,7 @@ func NewClientDis(addr []string,groupName string) (*Master, error) {
 	m :=&Master{
 		groupName:groupName,
 		client:     cli,
+		Nodes:new(sync.Map),
 	}
 
 	go m.watcher()
@@ -58,12 +60,23 @@ func (m *Master) watcher() {
 		for _, ev := range wresp.Events {
 			switch ev.Type {
 			case mvccpb.PUT:
-				m.SetServiceList(string(ev.Kv.Key), string(ev.Kv.Value))
+				info := GetServiceMeta(ev.Kv)
+				m.AddNode(string(ev.Kv.Key), info)
 			case mvccpb.DELETE:
-				m.DelServiceList(string(ev.Kv.Key))
+				m.DelNode(string(ev.Kv.Key))
 			}
 		}
 	}
+}
+
+//GetServiceMeta-
+func GetServiceMeta(kv *mvccpb.KeyValue)*ServiceMeta{
+	info := &ServiceMeta{}
+	err := json.Unmarshal(kv.Value,info)
+	if err != nil{
+		log.Println(err)
+	}
+	return info
 }
 
 //GetServiceList-
@@ -77,13 +90,20 @@ func (m *Master) GetServiceList() ([]string, error) {
 	return addrs, nil
 }
 
-//SetServiceList-
-func (m *Master) SetServiceList(key, val string) {
+//AddNode-新增节点
+func (m *Master) AddNode(key string, info *ServiceMeta) {
 	node := &Node{
-		nodeName:key,
+		key:key,
+		serviceMeta:info,
 	}
-	m.Nodes.Store(node.nodeName,node)
-	fmt.Println("set data key :", key, "val:", val)
+	m.Nodes.Store(node.key,node)
+	log.Println("set data key :", key)
+}
+
+//DelNode- 删除节点
+func (m *Master)DelNode(key string){
+	m.Nodes.Delete(key)
+	log.Println("set delete key :", key)
 }
 
 func (m *Master) extractAddrs(resp *clientv3.GetResponse) []string {
@@ -95,8 +115,8 @@ func (m *Master) extractAddrs(resp *clientv3.GetResponse) []string {
 	for i := range resp.Kvs {
 		if v := resp.Kvs[i].Value; v != nil {
 			key := string(resp.Kvs[i].Key)
-			value := string(resp.Kvs[i].Value)
-			m.SetServiceList(key, value)
+			value :=GetServiceMeta(resp.Kvs[i])
+			m.AddNode(key, value)
 			addrs = append(addrs, string(v))
 		}
 	}
@@ -104,14 +124,4 @@ func (m *Master) extractAddrs(resp *clientv3.GetResponse) []string {
 	return addrs
 }
 
-func (m *Master) DelServiceList(key string) {
-	m.Nodes.Delete(key)
-	fmt.Println("del data key:", key)
-}
 
-func main() {
-	cds, _ := NewClientDis([]string{"localhost:2379", "localhost:2381", "localhost:2383"},"node/")
-	serviceList,_ := cds.GetServiceList()
-	fmt.Println(serviceList)
-	select {}
-}

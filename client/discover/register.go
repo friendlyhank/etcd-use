@@ -1,10 +1,11 @@
-package main
+package discover
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
 	"hank.com/etcd-3.3.12-annotated/clientv3"
 	"log"
-	"os"
 	"time"
 )
 
@@ -15,11 +16,12 @@ type Service struct {
 	leaseid 	clientv3.LeaseID
 	ttl int64
 
+	node *Node
 	stop    chan error
 }
 
 //NewService -
-func NewService(groupName string,addr []string, ttl int64) (*Service, error) {
+func NewService(addr []string, ttl int64) (*Service, error) {
 	cli, err := clientv3.New(clientv3.Config{
 		Endpoints:   addr,
 		DialTimeout: 5 * time.Second,
@@ -32,7 +34,6 @@ func NewService(groupName string,addr []string, ttl int64) (*Service, error) {
 
 	ser := &Service{
 		client: cli,
-		groupName:groupName,
 		ttl:ttl,
 	}
 
@@ -41,24 +42,25 @@ func NewService(groupName string,addr []string, ttl int64) (*Service, error) {
 
 //Start -启动服务
 func (ser *Service) Start() error{
-	leaseKeepAliveResponse,err := ser.keepAlive()
 
+	//保持租约
+	leaseKeepAliveResponse,err := ser.keepAlive()
 	if err != nil {
 		log.Fatal(err)
 		return  err
 	}
 
-	//监听租约
-	go ser.ListenLeaseRespChan(leaseKeepAliveResponse)
+	//注册服务
+	ser.Register(ser.node.key,ser.node.serviceMeta)
 
-	return nil
-}
-
-//ListenLeaseRespChan -
-func (ser *Service)ListenLeaseRespChan(leaseKeepAliveResponse <-chan *clientv3.LeaseKeepAliveResponse){
 	for{
 		select {
-		case ka,ok := <- leaseKeepAliveResponse:
+		case err := <- ser.stop:
+			ser.RevokeLease()
+			return err
+			case <-ser.client.Ctx().Done():
+				return errors.New("server closed")
+		case ka,ok := <- leaseKeepAliveResponse://租约
 			if !ok {
 				log.Printf("keep alive channel closed\n")
 				ser.RevokeLease()
@@ -67,6 +69,8 @@ func (ser *Service)ListenLeaseRespChan(leaseKeepAliveResponse <-chan *clientv3.L
 			}
 		}
 	}
+
+	return nil
 }
 
 //setLease -保持租约
@@ -84,45 +88,40 @@ func (ser *Service) keepAlive()(<-chan *clientv3.LeaseKeepAliveResponse,error){
 	return lease.KeepAlive(context.TODO(), leaseResp.ID)
 }
 
+//PutService-
+func (ser *Service)PutService(groupName,key string,endpoint string){
+	ser.groupName = groupName
+	ser.node = &Node{
+		key:key,
+		serviceMeta:&ServiceMeta{
+			Endpoint:endpoint,
+		},
+	}
+}
+
 //通过租约 注册服务
-func (ser *Service) Register(nodeName, endpoint string) error {
+func (ser *Service) Register(nodeName string, serviceMeta *ServiceMeta) error {
 	kv := clientv3.NewKV(ser.client)
 	key := ser.groupName + "/"+ nodeName
-	val := endpoint
-	_, err := kv.Put(context.TODO(), key, val, clientv3.WithLease(ser.leaseid))
+	val,_ := json.Marshal(serviceMeta)
+	_, err := kv.Put(context.TODO(), key, string(val), clientv3.WithLease(ser.leaseid))
 	return err
 }
 
+//UnRegister- 取消监听服务
 func (ser *Service)UnRegister(nodeName string)error{
 	kv := clientv3.NewKV(ser.client)
-	_,err := kv.Delete(context.TODO(),nodeName)
+	key := ser.groupName+ "/"+ nodeName
+	_,err := kv.Delete(context.TODO(),key)
 	return err
 }
 
 //撤销租约
 func (ser *Service) RevokeLease() error {
-	time.Sleep(2 * time.Second)
 	_, err := ser.client.Revoke(context.TODO(), ser.leaseid)
 	return err
 }
 
 func (ser *Service)Stop(){
 	ser.stop <- nil
-}
-
-func main() {
-	ser, err := NewService("node",[]string{"localhost:2379", "localhost:2381", "localhost:2383"}, 5)
-
-	if err != nil {
-		log.Fatal(err)
-		os.Exit(2)
-	}
-
-	ser.Register("hank1","localhost:2379")
-	ser.Register("hank2","localhost:2381")
-	ser.Register("hank3","localhost:2383")
-
-	//启动服务
-	ser.Start()
-	select {}
 }
