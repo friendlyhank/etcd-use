@@ -1,6 +1,8 @@
 运行顺序
 先运行watcher再运行register
 
+2.问题
+
 register
 (1)为什么要设置租约
 server可能异常退出，需要维护一个TTL,类似于心跳,master可以监听到
@@ -8,3 +10,12 @@ server可能异常退出，需要维护一个TTL,类似于心跳,master可以监
 
 Watcher
 (2)Watcher作为agent只要启动一个就行了,那经典的LB到底时怎样的呢？
+
+
+3.
+##IP的自动确认
+
+##服务注册
+    .客户端注册
+    .服务端注册
+    
