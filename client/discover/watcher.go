@@ -20,6 +20,7 @@ type Master struct {
 //Node- 监听节点信息
 type Node struct{
 	Key string
+	Name string
 	ServiceMeta *ServiceMeta
 }
 

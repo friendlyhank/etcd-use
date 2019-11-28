@@ -51,7 +51,13 @@ func (ser *Service) Start() error{
 	}
 
 	//注册服务
-	ser.Register(ser.node.Key,ser.node.ServiceMeta)
+	if ser.node == nil{
+		err = errors.New("未找到设置节点")
+		log.Fatal(err)
+		return err
+	}
+
+	ser.Register()
 
 	for{
 		select {
@@ -65,7 +71,7 @@ func (ser *Service) Start() error{
 				log.Printf("keep alive channel closed\n")
 				ser.RevokeLease()
 			} else {
-				log.Printf("Recv reply from service:%s,ttl:%d",ser.groupName,ka.TTL)
+					log.Printf("Recv reply from service:%s,ttl:%d",ser.node.Key,ka.TTL)
 			}
 		}
 	}
@@ -89,28 +95,27 @@ func (ser *Service) keepAlive()(<-chan *clientv3.LeaseKeepAliveResponse,error){
 }
 
 //PutService-
-func (ser *Service)PutService(groupName,key string,serviceMeta *ServiceMeta){
+func (ser *Service)PutService(groupName,nodeName string,serviceMeta *ServiceMeta){
 	ser.groupName = groupName
 	ser.node = &Node{
-		Key:key,
+		Key:ser.groupName + "/"+ nodeName,
+		Name:nodeName,
 		ServiceMeta:serviceMeta,
 	}
 }
 
 //通过租约 注册服务
-func (ser *Service) Register(nodeName string, serviceMeta *ServiceMeta) error {
+func (ser *Service) Register() error {
 	kv := clientv3.NewKV(ser.client)
-	key := ser.groupName + "/"+ nodeName
-	val,_ := json.Marshal(serviceMeta)
-	_, err := kv.Put(context.TODO(), key, string(val), clientv3.WithLease(ser.leaseid))
+	val,_ := json.Marshal(ser.node.ServiceMeta)
+	_, err := kv.Put(context.TODO(), ser.node.Key, string(val), clientv3.WithLease(ser.leaseid))
 	return err
 }
 
 //UnRegister- 取消监听服务
-func (ser *Service)UnRegister(nodeName string)error{
+func (ser *Service)UnRegister()error{
 	kv := clientv3.NewKV(ser.client)
-	key := ser.groupName+ "/"+ nodeName
-	_,err := kv.Delete(context.TODO(),key)
+	_,err := kv.Delete(context.TODO(),ser.node.Key)
 	return err
 }
 
