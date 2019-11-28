@@ -51,7 +51,7 @@ func (ser *Service) Start() error{
 	}
 
 	//注册服务
-	ser.Register(ser.node.key,ser.node.serviceMeta)
+	ser.Register(ser.node.Key,ser.node.ServiceMeta)
 
 	for{
 		select {
@@ -89,13 +89,11 @@ func (ser *Service) keepAlive()(<-chan *clientv3.LeaseKeepAliveResponse,error){
 }
 
 //PutService-
-func (ser *Service)PutService(groupName,key string,endpoint string){
+func (ser *Service)PutService(groupName,key string,serviceMeta *ServiceMeta){
 	ser.groupName = groupName
 	ser.node = &Node{
-		key:key,
-		serviceMeta:&ServiceMeta{
-			Endpoint:endpoint,
-		},
+		Key:key,
+		ServiceMeta:serviceMeta,
 	}
 }
 
