@@ -1,4 +1,4 @@
-package main
+package watch
 
 import (
 	"context"
@@ -7,7 +7,7 @@ import (
 
 	"github.com/astaxie/beego/logs"
 
-	"hank.com/etcd-3.3.12-annotated/clientv3"
+	"go.etcd.io/etcd/clientv3"
 )
 
 func main() {

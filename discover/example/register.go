@@ -2,8 +2,8 @@ package main
 
 import (
 	"errors"
-	"hank.com/goetcd/client/discover"
-	"hank.com/goetcd/client/discover/util"
+	"hank.com/goetcd/discover"
+	"hank.com/goetcd/discover/util"
 	"log"
 	"os"
 	"time"
