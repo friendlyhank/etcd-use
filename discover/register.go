@@ -2,28 +2,34 @@ package discover
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
+	"fmt"
 	"go.etcd.io/etcd/clientv3"
 	"log"
 	"time"
 )
 
 //创建租约注册服务
-type Service struct {
-	client        *clientv3.Client
-	groupName           string
+type EtcdV3RegisterPlugin struct {
+	//service address,for example,tcp@127.0.0.1:8972,tcp@127.0.0.1:8973
+	ServiceAddress string
+	//etcd addresss
+	EtcdServers []string
+	//Registered services
+	Services       []string
+	GroupName           string
 	leaseid 	clientv3.LeaseID
-	ttl int64
+	UpdateInterval int64
 
-	node *Node
+	client       *clientv3.Client
+
 	stop    chan error
 }
 
-//NewService -
-func NewService(addr []string, ttl int64) (*Service, error) {
+//NewEtcdClentV3 -
+func (ser *EtcdV3RegisterPlugin)NewEtcdClentV3() (*clientv3.Client, error) {
 	cli, err := clientv3.New(clientv3.Config{
-		Endpoints:   addr,
+		Endpoints:   ser.EtcdServers,
 		DialTimeout: 5 * time.Second,
 	})
 
@@ -32,16 +38,22 @@ func NewService(addr []string, ttl int64) (*Service, error) {
 		return nil,err
 	}
 
-	ser := &Service{
-		client: cli,
-		ttl:ttl,
-	}
-
-	return ser, nil
+	return cli, nil
 }
 
 //Start -启动服务
-func (ser *Service) Start() error{
+func (ser *EtcdV3RegisterPlugin) Start() error{
+
+	//NewEtcdV3
+	c,err := ser.NewEtcdClentV3()
+	if err != nil{
+		log.Fatalf("cannot create etcd registry: %v",err)
+		return err
+	}
+	ser.client = c
+
+	//注册监听
+	ser.Register()
 
 	//保持租约
 	leaseKeepAliveResponse,err := ser.keepAlive()
@@ -49,15 +61,6 @@ func (ser *Service) Start() error{
 		log.Fatal(err)
 		return  err
 	}
-
-	//注册服务
-	if ser.node == nil{
-		err = errors.New("未找到设置节点")
-		log.Fatal(err)
-		return err
-	}
-
-	ser.Register()
 
 	for{
 		select {
@@ -71,7 +74,7 @@ func (ser *Service) Start() error{
 				log.Printf("keep alive channel closed\n")
 				ser.RevokeLease()
 			} else {
-					log.Printf("Recv reply from service:%s,ttl:%d",ser.node.Key,ka.TTL)
+					log.Printf("Recv reply from service:%s,ttl:%d",ser.ServiceAddress,ka.TTL)
 			}
 		}
 	}
@@ -80,11 +83,11 @@ func (ser *Service) Start() error{
 }
 
 //setLease -保持租约
-func (ser *Service) keepAlive()(<-chan *clientv3.LeaseKeepAliveResponse,error){
+func (ser *EtcdV3RegisterPlugin) keepAlive()(<-chan *clientv3.LeaseKeepAliveResponse,error){
 	lease := clientv3.NewLease(ser.client)
 
 	//设置租约时间
-	leaseResp, err := lease.Grant(context.TODO(), ser.ttl)
+	leaseResp, err := lease.Grant(context.TODO(), ser.UpdateInterval)
 	if err != nil {
 		log.Fatal(err)
 		return nil,err
@@ -94,37 +97,36 @@ func (ser *Service) keepAlive()(<-chan *clientv3.LeaseKeepAliveResponse,error){
 	return lease.KeepAlive(context.TODO(), leaseResp.ID)
 }
 
-//PutService-
-func (ser *Service)PutService(groupName,nodeName string,serviceMeta *ServiceMeta){
-	ser.groupName = groupName
-	ser.node = &Node{
-		Key:ser.groupName + "/"+ nodeName,
-		Name:nodeName,
-		ServiceMeta:serviceMeta,
-	}
-}
-
 //通过租约 注册服务
-func (ser *Service) Register() error {
+func (ser *EtcdV3RegisterPlugin) Register() error {
 	kv := clientv3.NewKV(ser.client)
-	val,_ := json.Marshal(ser.node.ServiceMeta)
-	_, err := kv.Put(context.TODO(), ser.node.Key, string(val), clientv3.WithLease(ser.leaseid))
+
+	nodePath := ser.GetNodePath()
+	_, err := kv.Put(context.TODO(), nodePath, "register", clientv3.WithLease(ser.leaseid))
 	return err
 }
 
+//GetNodePath-
+func (ser *EtcdV3RegisterPlugin)GetNodePath()string{
+	return fmt.Sprintf("%s/%s",ser.GroupName,ser.ServiceAddress)
+}
+
 //UnRegister- 取消监听服务
-func (ser *Service)UnRegister()error{
+func (ser *EtcdV3RegisterPlugin)UnRegister()error{
 	kv := clientv3.NewKV(ser.client)
-	_,err := kv.Delete(context.TODO(),ser.node.Key)
+
+	nodePath := ser.GetNodePath()
+	_,err := kv.Delete(context.TODO(),nodePath)
 	return err
 }
 
 //撤销租约
-func (ser *Service) RevokeLease() error {
+func (ser *EtcdV3RegisterPlugin) RevokeLease() error {
 	_, err := ser.client.Revoke(context.TODO(), ser.leaseid)
 	return err
 }
 
-func (ser *Service)Stop(){
+//Stop-
+func (ser *EtcdV3RegisterPlugin)Stop(){
 	ser.stop <- nil
 }
