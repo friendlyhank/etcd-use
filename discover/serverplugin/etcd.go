@@ -1,13 +1,18 @@
-package discover
+package serverplugin
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"go.etcd.io/etcd/clientv3"
 	"log"
 	"time"
 )
+
+/**
+ *serverplugin 可插拔的插件模式
+ */
 
 //创建租约注册服务
 type EtcdV3RegisterPlugin struct {
@@ -17,13 +22,22 @@ type EtcdV3RegisterPlugin struct {
 	EtcdServers []string
 	//Registered services
 	Services       []string
-	GroupName           string
+	BasePath           string
+	ServiceMeta *ServiceMeta
+
+	client       *clientv3.Client
 	leaseid 	clientv3.LeaseID
 	UpdateInterval int64
 
-	client       *clientv3.Client
-
 	stop    chan error
+}
+
+//ServiceMeta-
+type ServiceMeta struct {
+	IP  string
+	Endpoint string
+	Weight int32  //权重
+	CreateTime time.Time //创建时间
 }
 
 //NewEtcdClentV3 -
@@ -67,14 +81,14 @@ func (ser *EtcdV3RegisterPlugin) Start() error{
 		case err := <- ser.stop:
 			ser.RevokeLease()
 			return err
-			case <-ser.client.Ctx().Done():
-				return errors.New("server closed")
+		case <-ser.client.Ctx().Done():
+			return errors.New("server closed")
 		case ka,ok := <- leaseKeepAliveResponse://租约
 			if !ok {
 				log.Printf("keep alive channel closed\n")
 				ser.RevokeLease()
 			} else {
-					log.Printf("Recv reply from service:%s,ttl:%d",ser.ServiceAddress,ka.TTL)
+				log.Printf("Recv reply from service:%s,ttl:%d",ser.ServiceAddress,ka.TTL)
 			}
 		}
 	}
@@ -102,13 +116,15 @@ func (ser *EtcdV3RegisterPlugin) Register() error {
 	kv := clientv3.NewKV(ser.client)
 
 	nodePath := ser.GetNodePath()
-	_, err := kv.Put(context.TODO(), nodePath, "register", clientv3.WithLease(ser.leaseid))
+	sm,_ := json.Marshal(&ser.ServiceMeta)
+
+	_, err := kv.Put(context.TODO(), nodePath,string(sm), clientv3.WithLease(ser.leaseid))
 	return err
 }
 
 //GetNodePath-
 func (ser *EtcdV3RegisterPlugin)GetNodePath()string{
-	return fmt.Sprintf("%s/%s",ser.GroupName,ser.ServiceAddress)
+	return fmt.Sprintf("%s/%s",ser.BasePath,ser.ServiceAddress)
 }
 
 //UnRegister- 取消监听服务
@@ -130,3 +146,4 @@ func (ser *EtcdV3RegisterPlugin) RevokeLease() error {
 func (ser *EtcdV3RegisterPlugin)Stop(){
 	ser.stop <- nil
 }
+
