@@ -30,6 +30,12 @@ func NewEtcdV3Discovery(basePath string,etcdAddr []string) (*EtcdV3Discovery, er
 	m :=&EtcdV3Discovery{
 		BasePath:basePath,
 		client:     cli,
+		pairs:make([]*KVPair,0),
+	}
+
+	pairs,_ := m.GetKVPairList()
+	if len(pairs) != 0{
+		m.pairs = pairs
 	}
 
 	go m.watcher()
@@ -77,17 +83,19 @@ func (m *EtcdV3Discovery)DelKVPair(key string){
 	}
 }
 
-func (m *EtcdV3Discovery) extractAddrs(resp *clientv3.GetResponse) []string {
-	addrs := make([]string, 0)
-	if resp == nil || resp.Kvs == nil {
-		return addrs
+func (m *EtcdV3Discovery) GetKVPairList() ([]*KVPair,error) {
+	resp,err := m.client.Get(context.Background(),m.BasePath,clientv3.WithPrefix())
+	if err != nil{
+		return nil,err
 	}
 
+	pairs := make([]*KVPair,0)
 	for i := range resp.Kvs {
-		if v := resp.Kvs[i].Value; v != nil {
-			addrs = append(addrs, string(v))
+		if string(resp.Kvs[i].Key) == "" || string(resp.Kvs[i].Value)==""{
+			continue
 		}
+		pairs = append(pairs, &KVPair{Key:string(resp.Kvs[i].Key),Value:string(resp.Kvs[i].Value)})
 	}
 
-	return addrs
+	return pairs,nil
 }
