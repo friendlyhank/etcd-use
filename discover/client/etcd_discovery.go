@@ -8,13 +8,14 @@ import (
 	"go.etcd.io/etcd/mvcc/mvccpb"
 )
 
+//EtcdV3Discovery-
 type EtcdV3Discovery struct {
 	BasePath string
 	pairs []*KVPair
 	client   *clientv3.Client
 }
 
-//NewMaster-
+//NewEtcdV3Discovery-
 func NewEtcdV3Discovery(basePath string,etcdAddr []string) (*EtcdV3Discovery, error) {
 	cli, err := clientv3.New(clientv3.Config{
 		Endpoints:   etcdAddr,
@@ -45,7 +46,7 @@ func (m *EtcdV3Discovery) watcher() {
 			case mvccpb.PUT:
 				m.AddKVPair(string(ev.Kv.Key),string(ev.Kv.Value))
 			case mvccpb.DELETE:
-
+				m.DelKVPair(string(ev.Kv.Key))
 			}
 		}
 	}
