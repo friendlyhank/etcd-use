@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"go.etcd.io/etcd/clientv3"
+	"hank.com/goetcd/discover/server"
 	"log"
 	"time"
 )
@@ -23,21 +24,13 @@ type EtcdV3RegisterPlugin struct {
 	//Registered services
 	Services       []string
 	BasePath           string
-	ServiceMeta *ServiceMeta
+	ServiceMeta *server.ServiceMeta
 
 	client       *clientv3.Client
 	leaseid 	clientv3.LeaseID
 	UpdateInterval int64
 
 	stop    chan error
-}
-
-//ServiceMeta-
-type ServiceMeta struct {
-	IP  string
-	Endpoint string
-	Weight int32  //权重
-	CreateTime time.Time //创建时间
 }
 
 //NewEtcdClentV3 -
@@ -66,15 +59,16 @@ func (ser *EtcdV3RegisterPlugin) Start() error{
 	}
 	ser.client = c
 
-	//注册监听
-	ser.Register()
-
 	//保持租约
 	leaseKeepAliveResponse,err := ser.keepAlive()
 	if err != nil {
 		log.Fatal(err)
 		return  err
 	}
+
+	//注册监听
+	meta, err := json.Marshal(&ser.ServiceMeta)
+	ser.Register(ser.GetNodePath(), string(meta))
 
 	for{
 		select {
@@ -112,13 +106,10 @@ func (ser *EtcdV3RegisterPlugin) keepAlive()(<-chan *clientv3.LeaseKeepAliveResp
 }
 
 //通过租约 注册服务
-func (ser *EtcdV3RegisterPlugin) Register() error {
+func (ser *EtcdV3RegisterPlugin) Register(key string,val string) error {
 	kv := clientv3.NewKV(ser.client)
 
-	nodePath := ser.GetNodePath()
-	sm,_ := json.Marshal(&ser.ServiceMeta)
-
-	_, err := kv.Put(context.TODO(), nodePath,string(sm), clientv3.WithLease(ser.leaseid))
+	_, err := kv.Put(context.TODO(), key,val, clientv3.WithLease(ser.leaseid))
 	return err
 }
 
