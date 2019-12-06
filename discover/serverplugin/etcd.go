@@ -119,11 +119,10 @@ func (ser *EtcdV3RegisterPlugin)GetNodePath()string{
 }
 
 //UnRegister- 取消监听服务
-func (ser *EtcdV3RegisterPlugin)UnRegister()error{
+func (ser *EtcdV3RegisterPlugin)UnRegister(key string)error{
 	kv := clientv3.NewKV(ser.client)
 
-	nodePath := ser.GetNodePath()
-	_,err := kv.Delete(context.TODO(),nodePath)
+	_,err := kv.Delete(context.TODO(),key)
 	return err
 }
 

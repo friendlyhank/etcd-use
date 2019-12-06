@@ -7,6 +7,12 @@
 ## 场景二: 消息发布和订阅
 
 ##场景三: 负载均衡
+* [selector|按随机选取](https://github.com/friendlyhank/goetcd/blob/master/balancer/client/selector_test.go)
+* [selector|按循环选取](https://github.com/friendlyhank/goetcd/blob/master/balancer/client/selector_test.go)
+* [selector|按加权选取](https://github.com/friendlyhank/goetcd/blob/master/balancer/client/selector_test.go)
+* [selector|按ping选取](https://github.com/friendlyhank/goetcd/blob/master/balancer/client/selector_test.go)
+* [selector|按Hash选取](https://github.com/friendlyhank/goetcd/blob/master/balancer/client/selector_test.go)
+* [selector|按地理位置选取](https://github.com/friendlyhank/goetcd/blob/master/balancer/client/selector_test.go)
 
 ##场景四: 分布式通知与协调
 
