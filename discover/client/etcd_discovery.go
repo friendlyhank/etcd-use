@@ -84,7 +84,7 @@ func (m *EtcdV3Discovery)DelNode(key string){
 	for i,node := range m.nodes{
 		if node.Key == key{
 			m.nodes=append(m.nodes[:i],m.nodes[i+1:]...)
-			log.Printf("set delete key :%v", key)
+			log.Printf("delete key :%v", key)
 		}
 	}
 }

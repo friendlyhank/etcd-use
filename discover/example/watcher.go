@@ -17,6 +17,7 @@ func main() {
 		for _,endPoint:= range list{
 			log.Printf("node:%v \n", endPoint)
 		}
+		log.Println("==============================================")
 		time.Sleep(time.Second*5)
 	}
 }
