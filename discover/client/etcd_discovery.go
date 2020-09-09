@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"go.etcd.io/etcd/clientv3"
 	"go.etcd.io/etcd/mvcc/mvccpb"
-	"hank.com/goetcd/discover/server"
+	"github.com/friendlyhank/etcd-use/discover/server"
 	"log"
 	"time"
 )

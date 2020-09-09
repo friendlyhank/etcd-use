@@ -1,7 +1,7 @@
 package main
 
 import (
-	"hank.com/goetcd/discover/client"
+	"github.com/friendlyhank/etcd-use/discover/client"
 	"log"
 	"time"
 )

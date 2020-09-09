@@ -1,7 +1,7 @@
 package serverplugin
 
 import (
-	"hank.com/goetcd/discover/server"
+	"github.com/friendlyhank/etcd-use/discover/server"
 	"testing"
 	"time"
 )

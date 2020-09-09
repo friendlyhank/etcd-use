@@ -6,7 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"go.etcd.io/etcd/clientv3"
-	"hank.com/goetcd/discover/server"
+	"github.com/friendlyhank/etcd-use/discover/server"
 	"log"
 	"time"
 )

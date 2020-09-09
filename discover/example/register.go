@@ -1,9 +1,9 @@
 package main
 
 import (
-	"hank.com/goetcd/discover/server"
-	"hank.com/goetcd/discover/serverplugin"
-	"hank.com/goetcd/discover/util"
+	"github.com/friendlyhank/etcd-use/discover/server"
+	"github.com/friendlyhank/etcd-use/discover/serverplugin"
+	"github.com/friendlyhank/etcd-use/discover/util"
 	"time"
 )
 
